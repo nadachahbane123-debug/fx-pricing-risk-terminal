@@ -1,0 +1,22 @@
+[theme]
+base = "dark"
+primaryColor = "#C8102E"
+backgroundColor = "#0A0E14"
+secondaryBackgroundColor = "#12161F"
+textColor = "#E8E8E8"
+font = "sans serif"
+
+[server]
+headless = true
+# runOnSave desactive : evite les re-executions intempestives quand un logiciel
+# de synchronisation (OneDrive, Dropbox...) touche les fichiers en arriere-plan,
+# ce qui pouvait interrompre la navigation entre pages.
+runOnSave = false
+enableXsrfProtection = true
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
