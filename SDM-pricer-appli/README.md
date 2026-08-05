@@ -1,81 +1,95 @@
-# CFG BANK — USDMAD PRICER TERMINAL
+# FX Pricing & Risk Terminal — USD/MAD
 
-Pricer FX USD/MAD style "terminal Bloomberg", developpe pour la salle des marches de
-CFG Bank (Projet de Fin d'Annee). Streamlit + Plotly + SQLite, sans dependance externe
-payante.
+> Terminal de *market making* sur le change USD/MAD développé pour la salle des marchés de **CFG Bank** (Projet de Fin d'Année — École Mohammadia d'Ingénieurs).
 
-## Installation
+L'application price le dollar américain face au dirham marocain en intégrant, à chaque instant, le risque de la position déjà détenue par le desk — c'est un pricer dynamique qui raisonne en teneur de marché. Elle réunit **22 modules** couvrant le pricing, la gestion de position, le risque, la volatilité, les séries temporelles, le machine learning et trois études d'événement.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate          # Windows : .venv\Scripts\activate
-pip install -r requirements.txt
+**Stack technique :** `Python` · `Streamlit` · `Plotly` · `SQLite` · `NumPy` · `pandas` · `SciPy` *(sans dépendance externe payante)*.
+
+---
+
+## Aperçu des fonctionnalités
+
+### Pricing & Cotation
+* **MID théorique USD/MAD :** Calcul basé sur la relation de panier officiel (60 % EUR / 40 % USD) et respect de la bande réglementaire de ±5 % fixée par Bank Al-Maghrib.
+* **Cotation client sur demande (RFQ) :** Génération automatique avec grille de spread adaptative selon la taille d'opération.
+* **Marché à terme & Swaps :** Calcul des cours Forward et Swaps via la Parité des Taux d'Intérêt Couverte (CIP).
+
+### Cœur du modèle — Décalage de prix selon la position
+* **Modèle de Ho & Stoll (1981) :** Décalage (*skew*) du prix bid/ask en fonction de l'inventaire détenu et de l'aversion au risque du trader.
+* **Aversion au risque calibrée :** Valeur déduite d'un objectif de gestion (décalage cible) plutôt que choisie arbitrairement.
+* **Backtest point-in-time :** Rejeu historique rigoureux sans biais d'anticipation.
+
+### Risque & P&L
+* **Value at Risk (VaR) :** Calcul paramétrique (95 % et 99 % de confiance) sur différents horizons temporels.
+* **Suivi & Attribution du P&L :** Séparation claire entre trésorerie engagée et valorisation Mark-to-Market (MtM).
+* **Risque de portefeuille multi-devises :** Suivi des limites prudentielles avec journal de conformité en temps réel.
+* **Liquidation optimale :** Plan d'exécution basé sur le modèle d'**Almgren & Chriss (2000)**.
+
+### Analyse quantitative & ML
+* **Volatilité conditionnelle :** Modélisation avancée via GARCH(1,1), GJR-GARCH et EGARCH.
+* **Séries chronologiques :** Décomposition de tendance, tests de stationnarité (ADF) et analyse de retour à la moyenne.
+* **Segmentation & Anomalies :** Clustering des clients par K-Means et détection d'anomalies via score Z modifié.
+
+### Études d'événement (*Event Studies*)
+* **Résilience du prix :** Analyse de l'impact de marché empirique suite à un choc de flux.
+* **Dépassements de limites :** Étude du comportement de l'inventaire lors des franchissements de seuils critiques.
+* **Acceptation client :** Test d'indépendance du Khi-deux sur la persistance d'acceptation des cotations.
+
+---
+
+## Architecture du projet
+
+```text
+fx-pricing-terminal/
+├── app.py                     # Point d'entrée Streamlit (22 pages pilotées par st.session_state)
+│
+├── core/                      # Logique métier pure (indépendante de l'interface)
+│   ├── models.py              # MID théorique, bande BAM, Ho-Stoll & calibration
+│   ├── db.py                  # Couche de persistance SQLite (transactions, historique)
+│   ├── datagen.py             # Générateur de données de marché (GARCH + impact de flux)
+│   ├── events.py              # Modules d'études d'événement
+│   ├── pnl.py                 # Calculs du P&L (Trésorerie + Mark-to-Market)
+│   ├── risk.py                # Moteur de VaR et métriques de risque
+│   ├── portfolio.py           # Portefeuille multi-devises et règles de conformité
+│   ├── flow.py                # Traitement et analyse des flux d'ordres
+│   ├── segmentation.py        # Algorithme K-Means pour le clustering client
+│   ├── anomaly.py             # Détection d'anomalies par score Z modifié
+│   ├── vol_models.py          # Modélisation GARCH / GJR-GARCH / EGARCH
+│   ├── timeseries.py          # Décomposition et tests de stationnarité (ADF)
+│   ├── forward.py             # Calculs Forward et Swaps (CIP)
+│   ├── backtest.py            # Moteur de rejeu historique
+│   └── stress.py              # Scénarios de stress testing
+│
+└── ui/                        # Composants d'interface utilisateur
+    ├── theme.py               # Palette graphique & CSS personnalisé (style Bloomberg)
+    ├── components.py          # KPI cards, badges, ticker défilant & navigation
+    └── charts.py              # Graphiques Plotly configurés en mode sombre
 ```
+---
 
-## Lancement
+## Modèles de référence
 
-```bash
-streamlit run app.py
-```
+| Domaine | Modèle | Référence |
+|---|---|---|
+| Décalage de prix | Ho & Stoll | *Optimal dealer pricing under transactions and return uncertainty* (1981) |
+| Liquidation | Almgren & Chriss | *Optimal execution of portfolio transactions* (2000) |
+| Volatilité | GARCH / GJR / EGARCH | Bollerslev (1986), Glosten-Jagannathan-Runkle (1993), Nelson (1991) |
+| Stationnarité | Dickey-Fuller augmenté | Fuller (1976) |
+| Détection d'anomalies | Score z modifié | Iglewicz & Hoaglin (1993) |
 
-L'application s'ouvre sur `http://localhost:8501`. Au premier lancement, `pricer.db`
-est cree et pre-rempli avec des donnees de demonstration (cotations concurrentes,
-historique de MID, transactions d'exemple).
+Le détail méthodologique complet est disponible dans les pages **THEORY** et **DOCS** de l'application.
 
-## Structure du projet
+---
 
-```
-app.py                     Point d'entree Streamlit — 11 pages pilotees par st.session_state
-core/
-  models.py                 Logique metier pure (sections 1-12 : MID theorique, bande,
-                             marche, position, sigma, gamma/eta/lambda, Ho-Stoll, Almgren-Chriss,
-                             conformite) — testable sans Streamlit
-  db.py                      Persistance SQLite (transactions, historique de prix, depassements)
-  pnl.py                     Calcul du P&L (flux de tresorerie + mark-to-market, section 18)
-  backtest.py                Rejeu historique point-in-time du skew (section 16)
-  stress.py                  Scenarios de choc / tests de resistance (section 19)
-ui/
-  theme.py                   Palette de couleurs + injection CSS globale (habillage terminal)
-  components.py               Cartes de metriques, badges, ticker tape, sparklines,
-                               bandeau d'alerte de position, navigation par codes de fonction
-  charts.py                    Graphiques Plotly avec theme sombre reutilisable
-.streamlit/config.toml       Theme sombre Streamlit natif
-assets/logo-cfg.png          Logo CFG Bank (fond transparent)
-exports/                     Exports CSV quotidiens generes automatiquement
-audit_log.csv                Journal d'audit de conformite (ecriture en mode ajout uniquement)
-pricer.db                    Base SQLite (creee au premier lancement)
-```
+## Interface
 
-## Fonctionnement
+Terminal sombre, police monospace pour les chiffres, accent rouge institutionnel CFG (`#C8102E`), code couleur vert/rouge pour les variations, ticker défilant, cartes de métriques avec *sparklines*, tableaux denses et jauge de risque.
 
-- **Navigation** : la barre laterale utilise des boutons libelles comme des codes de
-  fonction Bloomberg (`DASH`, `MKT<GO>`, `POS<GO>`, ...) pilotes par
-  `st.session_state["page_active"]` — pas de `st.tabs()` natif, ce qui permet a n'importe
-  quel bouton de rediriger l'utilisateur vers une autre page (voir le bouton "Panic Mode"
-  de la page `POS<GO>`, qui bascule automatiquement vers `LIQD<GO>`).
-- **Ticker** : le bandeau defilant en haut de l'ecran est genere dynamiquement a partir
-  du tableau de cotations concurrentes (`st.session_state["quotes"]`, editable dans
-  `MKT<GO>`) — toute modification s'y reflete immediatement.
-- **Historisation quotidienne** : a chaque lancement/rechargement, si la date du jour
-  n'a pas encore d'enregistrement dans `price_history`, le MID de marche courant est
-  calcule et enregistre, un export CSV est genere dans `exports/`, et une ligne est
-  ajoutee a `audit_log.csv`.
-- **Backtest du skew** : rejoue le modele Ho & Stoll jour par jour en n'utilisant que
-  les donnees disponibles a chaque date (pas de biais d'anticipation).
+---
 
-## Modeles implementes
+##  Réalisé par
 
-- **Ho & Stoll (1981)** — *Optimal dealer pricing under transactions and return
-  uncertainty*, Journal of Financial Economics. Decalage du prix de reservation en
-  fonction de la position et de l'aversion au risque.
-- **Almgren & Chriss (2000)** — *Optimal execution of portfolio transactions*, Journal
-  of Risk. Trajectoire de liquidation optimale.
-
-Voir la page `DOCS<GO>` dans l'application pour le detail methodologique complet.
-
-## Apercu
-
-Terminal sombre (`#0A0E14`/`#12161F`), police monospace (JetBrains Mono) pour tous les
-chiffres, accent rouge institutionnel CFG (`#C8102E`), vert/rouge pour les variations et
-badges de conformite, bandeau ticker defilant, cartes de metriques avec sparklines,
-tableaux denses a lignes alternees, jauge de risque type thermometre.
+**Nada Chahbane** 
+*Élève ingénieure en Modélisation Informatique Scientifique* — **École Mohammadia d'Ingénieurs (EMI)**  
+Projet réalisé dans le cadre d'un stage de fin d'année au sein de la Salle des Marchés de **CFG Bank**.
