@@ -16,6 +16,8 @@ SCENARIOS_PAR_DEFAUT = [
     {"nom": "EUR/USD +2%", "choc_pct": 0.02, "vol_multiplier": None},
     {"nom": "EUR/USD -2%", "choc_pct": -0.02, "vol_multiplier": None},
     {"nom": "EUR/USD +5% (choc extreme)", "choc_pct": 0.05, "vol_multiplier": None},
+    {"nom": "USD/MAD +2% (choc de marche propre)", "choc_pct": None, "choc_marche_pct": 0.02, "vol_multiplier": None},
+    {"nom": "USD/MAD -2% (choc de marche propre)", "choc_pct": None, "choc_marche_pct": -0.02, "vol_multiplier": None},
     {"nom": "Volatilite x2 (regime de crise)", "choc_pct": None, "vol_multiplier": 2.0},
 ]
 
@@ -48,15 +50,26 @@ def run_scenario(
     calib: CalibrationParams,
     choc_pct: float | None,
     vol_multiplier: float | None,
+    choc_marche_pct: float | None = None,
 ) -> ResultatScenario:
-    """Applique un choc EUR/USD (impacte MID theo + MID marche) et/ou un choc de
+    """Applique un choc EUR/USD, un choc de marche propre et/ou un choc de
     volatilite (impacte sigma -> gamma -> skew), puis recalcule le pricing complet.
+
+    - Choc EUR/USD : transmis au USD/MAD par la fonction du MID theorique
+      (a*x^2 + b*x + c). Le MID de marche suit la meme variation relative que
+      le MID theorique, ce qui respecte le signe economique : un euro qui
+      s'apprecie face au dollar fait BAISSER le USD/MAD.
+    - Choc de marche propre : variation relative directe du MID de marche
+      (liquidite, flux), sans passer par l'EUR/USD ; le MID theorique est inchange.
     """
     eur_usd_c = eur_usd_actuel * (1 + choc_pct) if choc_pct is not None else eur_usd_actuel
     mid_theo_c = mid_theorique(eur_usd_c)
     borne_basse_c, borne_haute_c = bande_fluctuation(mid_theo_c)
 
-    mid_marche_c = mid_marche_actuel * (1 + choc_pct) if choc_pct is not None else mid_marche_actuel
+    mid_theo_0 = mid_theorique(eur_usd_actuel)
+    mid_marche_c = mid_marche_actuel * (mid_theo_c / mid_theo_0)  # transmission par le MID theorique
+    if choc_marche_pct is not None:
+        mid_marche_c *= (1 + choc_marche_pct)
 
     sigma_c = sigma_actuel * vol_multiplier if vol_multiplier is not None else sigma_actuel
     gamma_c = calibrer_gamma(sigma_c, calib)
@@ -103,6 +116,7 @@ def run_all_scenarios(
             calib,
             s.get("choc_pct"),
             s.get("vol_multiplier"),
+            s.get("choc_marche_pct"),
         )
         for s in scenarios
     ]
