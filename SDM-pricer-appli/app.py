@@ -1928,7 +1928,8 @@ def render_attr (etat ,transactions :pd .DataFrame ,history :pd .DataFrame )->No
     "question que pose un responsable de desk."
     )
 
-    attr =attribution .attribuer_pnl (transactions ,history ,etat .mid_marche ,etat .gamma ,etat .sigma )
+    attr = attribution.attribuer_pnl(transactions, history, etat.mid_marche,
+                                     st.session_state["calib"], etat.spread_marche)
 
     a1 ,a2 ,a3 ,a4 =st .columns (4 )
     metric_card (a1 ,"MARGE DE SPREAD",f"{attr .marge_spread :+,.0f}".replace (","," "),
