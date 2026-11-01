@@ -58,9 +58,16 @@ def attribuer_pnl(transactions: pd.DataFrame, history: pd.DataFrame, mid_actuel:
     if transactions.empty:
         return AttributionPnL(0.0, 0.0, 0.0, 0.0, 0)
 
+    # Le pricing point-in-time ne depend que du JOUR : on le calcule une fois par
+    # date distincte (memoisation), comme dans le module PNL.
+    cache: dict = {}
+
     marge = skew_eff = marche = 0.0
     for _, r in transactions.iterrows():
-        pit = point_in_time_pricing(history, transactions, str(r["date"]), calib, spread_marche)
+        jour = str(r["date"])[:10]
+        if jour not in cache:
+            cache[jour] = point_in_time_pricing(history, transactions, jour, calib, spread_marche)
+        pit = cache[jour]
         if pit is None:
             continue
         montant = float(r["montant"])
